@@ -14,6 +14,7 @@ RUN rm -rf /comfyui/custom_nodes/ComfyUI-PuLID-Flux \
 
 RUN python - <<'INNER'
 import os, sys, traceback
+sys.path.insert(0, '/comfyui')
 sys.path.insert(0, '/comfyui/custom_nodes')
 package_root='/comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll'
 print('custom_nodes:', sorted(os.listdir('/comfyui/custom_nodes')))
