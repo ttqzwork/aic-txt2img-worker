@@ -2,7 +2,7 @@ FROM runpod/worker-comfyui:5.5.1-base
 
 RUN comfy-node-install https://github.com/XLabs-AI/x-flux-comfyui.git
 RUN comfy-node-install https://github.com/Fannovel16/comfyui_controlnet_aux.git
-RUN apt-get update && apt-get install -y --no-install-recommends g++ && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends g++ python3-dev && rm -rf /var/lib/apt/lists/*
 RUN rm -rf /comfyui/custom_nodes/ComfyUI-PuLID-Flux \
            /comfyui/custom_nodes/ComfyUI_PuLID_Flux \
            /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll \
