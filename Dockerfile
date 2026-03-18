@@ -3,9 +3,6 @@ FROM runpod/worker-comfyui:5.5.1-base
 RUN comfy-node-install https://github.com/XLabs-AI/x-flux-comfyui.git
 RUN comfy-node-install https://github.com/Fannovel16/comfyui_controlnet_aux.git
 RUN apt-get update && apt-get install -y --no-install-recommends g++ python3-dev && rm -rf /var/lib/apt/lists/*
-RUN rm -rf /comfyui/custom_nodes/comfyui-ipadapter-flux \
- && git clone --depth 1 https://github.com/Shakker-Labs/ComfyUI-IPAdapter-Flux.git /comfyui/custom_nodes/comfyui-ipadapter-flux \
- && python -m pip install -r /comfyui/custom_nodes/comfyui-ipadapter-flux/requirements.txt
 RUN rm -rf /comfyui/custom_nodes/ComfyUI-PuLID-Flux \
            /comfyui/custom_nodes/ComfyUI_PuLID_Flux \
            /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll \
@@ -25,11 +22,10 @@ checks = {
     'face_restoration_helper.py',
     'requirements.txt',
     ],
-    '/comfyui/custom_nodes/comfyui-ipadapter-flux': [
-    '__init__.py',
-    'ipadapter_flux.py',
-    'ipadapter_flux_advanced.py',
-    'requirements.txt',
+    '/comfyui/custom_nodes/x-flux-comfyui': [
+    'nodes.py',
+    'sampling.py',
+    'layers.py',
     ],
 }
 
@@ -42,18 +38,44 @@ for package_root, required_files in checks.items():
 print('PuLID/IPAdapter static validation ok')
 INNER
 
-RUN python - <<'INNER'
+RUN rm -rf /comfyui/models/clip  && ln -s /runpod-volume/models/base/clip /comfyui/models/clip  && rm -rf /comfyui/models/diffusion_models  && ln -s /runpod-volume/models/base/diffusion_models /comfyui/models/diffusion_models  && rm -rf /comfyui/models/vae  && ln -s /runpod-volume/models/base/vae /comfyui/models/vae  && rm -rf /comfyui/models/loras  && ln -s /runpod-volume/models/lora /comfyui/models/loras  && mkdir -p /runpod-volume/models/pulid  && mkdir -p /runpod-volume/models/xlabs/controlnets  && mkdir -p /runpod-volume/models/xlabs/ipadapters  && mkdir -p /runpod-volume/models/clip_vision  && mkdir -p /runpod-volume/models/insightface/models/antelopev2  && rm -rf /comfyui/models/pulid  && ln -s /runpod-volume/models/pulid /comfyui/models/pulid  && rm -rf /comfyui/models/xlabs  && ln -s /runpod-volume/models/xlabs /comfyui/models/xlabs  && rm -rf /comfyui/models/clip_vision  && ln -s /runpod-volume/models/clip_vision /comfyui/models/clip_vision  && rm -rf /comfyui/models/insightface  && ln -s /runpod-volume/models/insightface /comfyui/models/insightface
+
+RUN mv /start.sh /start.base.sh \
+ && cat <<'SCRIPT' > /start.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+python - <<'PY'
 from pathlib import Path
 from urllib.request import urlopen
 
-url = "https://huggingface.co/InstantX/FLUX.1-dev-IP-Adapter/resolve/main/ip-adapter.bin"
-dest = Path("/comfyui/models/ipadapter-flux/ip-adapter.bin")
-dest.parent.mkdir(parents=True, exist_ok=True)
+downloads = [
+    (
+        "https://huggingface.co/XLabs-AI/flux-ip-adapter/resolve/main/ip_adapter.safetensors",
+        Path("/runpod-volume/models/xlabs/ipadapters/ip_adapter.safetensors"),
+    ),
+    (
+        "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors",
+        Path("/runpod-volume/models/clip_vision/model.safetensors"),
+    ),
+]
 
-with urlopen(url) as response, dest.open("wb") as fh:
-    fh.write(response.read())
+for url, dest in downloads:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists() and dest.stat().st_size > 1024 * 1024:
+        print(f"worker-comfyui - Reusing volume model: {dest}")
+        continue
+    print(f"worker-comfyui - Downloading model to volume: {dest}")
+    with urlopen(url) as response, dest.open("wb") as fh:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            fh.write(chunk)
+    print(f"worker-comfyui - Downloaded {dest} ({dest.stat().st_size} bytes)")
+PY
 
-print(f"Downloaded {dest} ({dest.stat().st_size} bytes)")
-INNER
+exec /start.base.sh
+SCRIPT
 
-RUN rm -rf /comfyui/models/clip  && ln -s /runpod-volume/models/base/clip /comfyui/models/clip  && rm -rf /comfyui/models/diffusion_models  && ln -s /runpod-volume/models/base/diffusion_models /comfyui/models/diffusion_models  && rm -rf /comfyui/models/vae  && ln -s /runpod-volume/models/base/vae /comfyui/models/vae  && rm -rf /comfyui/models/loras  && ln -s /runpod-volume/models/lora /comfyui/models/loras  && mkdir -p /runpod-volume/models/pulid  && mkdir -p /runpod-volume/models/xlabs/controlnets  && mkdir -p /runpod-volume/models/xlabs/ipadapters  && mkdir -p /runpod-volume/models/clip_vision  && mkdir -p /runpod-volume/models/insightface/models/antelopev2  && rm -rf /comfyui/models/pulid  && ln -s /runpod-volume/models/pulid /comfyui/models/pulid  && rm -rf /comfyui/models/xlabs  && ln -s /runpod-volume/models/xlabs /comfyui/models/xlabs  && rm -rf /comfyui/models/clip_vision  && ln -s /runpod-volume/models/clip_vision /comfyui/models/clip_vision  && rm -rf /comfyui/models/insightface  && ln -s /runpod-volume/models/insightface /comfyui/models/insightface
+RUN chmod +x /start.sh
