@@ -2,8 +2,12 @@ FROM runpod/worker-comfyui:5.5.1-base
 
 RUN comfy-node-install https://github.com/XLabs-AI/x-flux-comfyui.git
 RUN comfy-node-install https://github.com/Fannovel16/comfyui_controlnet_aux.git
-RUN comfy-node-install https://github.com/lldacing/ComfyUI_PuLID_Flux_ll.git
-RUN python -m pip install facenet-pytorch --no-deps
+RUN rm -rf /comfyui/custom_nodes/ComfyUI-PuLID-Flux \
+           /comfyui/custom_nodes/ComfyUI_PuLID_Flux \
+           /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll \
+ && git clone --depth 1 https://github.com/lldacing/ComfyUI_PuLID_Flux_ll.git /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll \
+ && python -m pip install -r /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll/requirements.txt \
+ && python -m pip install facenet-pytorch --no-deps
 
 RUN python - <<'INNER'
 import os, sys, importlib.util, traceback
@@ -15,7 +19,9 @@ try:
     spec=importlib.util.spec_from_file_location('ComfyUI_PuLID_Flux_ll', module_path, submodule_search_locations=[os.path.dirname(module_path)])
     mod=importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    required={'PulidFluxModelLoader','PulidFluxEvaClipLoader','ApplyPulidFlux'}
+    pulid_nodes=sorted(k for k in mod.NODE_CLASS_MAPPINGS.keys() if 'PulidFlux' in k or k == 'ApplyPulidFlux')
+    print('PuLID node keys:', pulid_nodes)
+    required={'PulidFluxModelLoader','PulidFluxEvaClipLoader','PulidFluxFaceNetLoader','ApplyPulidFlux'}
     missing=required-set(mod.NODE_CLASS_MAPPINGS.keys())
     if missing:
         raise RuntimeError(f'Missing PuLID nodes: {sorted(missing)}')
