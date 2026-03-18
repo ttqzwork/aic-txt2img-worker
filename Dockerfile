@@ -10,15 +10,13 @@ RUN rm -rf /comfyui/custom_nodes/ComfyUI-PuLID-Flux \
  && python -m pip install facenet-pytorch --no-deps
 
 RUN python - <<'INNER'
-import os, sys, importlib.util, traceback
-sys.path.insert(0, '/comfyui')
-module_path='/comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll/__init__.py'
+import os, sys, traceback
+sys.path.insert(0, '/comfyui/custom_nodes')
+package_root='/comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll'
 print('custom_nodes:', sorted(os.listdir('/comfyui/custom_nodes')))
-print('checking module path:', module_path, 'exists=', os.path.exists(module_path))
+print('checking package root:', package_root, 'exists=', os.path.isdir(package_root))
 try:
-    spec=importlib.util.spec_from_file_location('ComfyUI_PuLID_Flux_ll', module_path, submodule_search_locations=[os.path.dirname(module_path)])
-    mod=importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    import ComfyUI_PuLID_Flux_ll as mod
     pulid_nodes=sorted(k for k in mod.NODE_CLASS_MAPPINGS.keys() if 'PulidFlux' in k or k == 'ApplyPulidFlux')
     print('PuLID node keys:', pulid_nodes)
     required={'PulidFluxModelLoader','PulidFluxEvaClipLoader','PulidFluxFaceNetLoader','ApplyPulidFlux'}
