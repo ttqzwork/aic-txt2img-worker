@@ -7,6 +7,7 @@ RUN rm -rf /comfyui/custom_nodes/ComfyUI-PuLID-Flux \
            /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll \
  && git clone --depth 1 https://github.com/lldacing/ComfyUI_PuLID_Flux_ll.git /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll \
  && python -m pip install -r /comfyui/custom_nodes/ComfyUI_PuLID_Flux_ll/requirements.txt \
+ && python -m pip install insightface==0.7.3 \
  && python -m pip install opencv-python-headless \
  && python -m pip install facenet-pytorch --no-deps
 
